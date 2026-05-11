@@ -118,14 +118,14 @@ async def send_due_cards(bot, user_id: int, cards: list) -> None:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Привет! Я помогу тебе запомнить любой материал навсегда 🧠\n\n"
-        "Что можно добавить:\n"
-        "📷 Фото — конспект, схема, карточка\n"
-        "✍️ Текст — определение, формула, цитата\n\n"
-        "Как работает:\n"
-        "Я буду возвращать тебе материал через 1, 3, 7, 21 и 60 дней.\n"
-        "Каждый раз — всё крепче в памяти.\n\n"
-        "Просто пришли фото или напиши текст — начнём!"
+        "Привет! Я бот для запоминания 🧠\n\n"
+        "Работает просто:\n"
+        "Пришли мне фото конспекта или напиши текст — "
+        "я буду возвращать его тебе в нужный момент, пока не запомнишь.\n\n"
+        "Интервалы повторений основаны на науке о памяти:\n"
+        "через 1 день → 3 → 7 → 21 → 60\n\n"
+        "Каждое повторение — материал держится дольше.\n\n"
+        "Попробуй прямо сейчас — пришли что-нибудь 👇"
     )
 
 
@@ -140,24 +140,35 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+def review_schedule_text() -> str:
+    """Возвращает текст с реальными датами повторений."""
+    today = datetime.now(timezone.utc)
+    lines = []
+    for i, days in enumerate(INTERVALS):
+        date = (today + timedelta(days=days)).strftime("%-d %b")
+        lines.append(f"  {i+1}. Через {days} д. — {date}")
+    return "\n".join(lines)
+
+
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Принимает фото и сохраняет как карточку типа photo."""
     user_id = update.effective_user.id
-    photo   = update.message.photo[-1]  # самое высокое качество
+    photo   = update.message.photo[-1]
     caption = update.message.caption or ""
 
-    save_card(user_id, card_type="photo", file_id=photo.file_id, caption=caption)
-
-    await update.message.reply_text(
-        "📷 Фото сохранено!\n\n"
-        "Повторения:\n"
-        "· Завтра\n"
-        "· Через 3 дня\n"
-        "· Через 7 дней\n"
-        "· Через 21 день\n"
-        "· Через 60 дней\n\n"
-        "Можешь добавлять ещё материал."
-    )
+    try:
+        save_card(user_id, card_type="photo", file_id=photo.file_id, caption=caption)
+        await update.message.reply_text(
+            "📷 Фото сохранено!\n\n"
+            "Буду присылать его тебе:\n"
+            f"{review_schedule_text()}\n\n"
+            "Можешь добавлять ещё материал — фото или текст."
+        )
+    except Exception as e:
+        logger.error(f"Ошибка сохранения фото для user {user_id}: {e}")
+        await update.message.reply_text(
+            "⚠️ Не удалось сохранить фото. Попробуй ещё раз через минуту."
+        )
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -165,7 +176,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text    = update.message.text.strip()
 
-    # Слишком короткий текст — не карточка
     if len(text) < 5:
         await update.message.reply_text(
             "Слишком короткое сообщение.\n"
@@ -173,18 +183,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    save_card(user_id, card_type="text", text_content=text)
-
-    await update.message.reply_text(
-        "✍️ Текст сохранён!\n\n"
-        "Повторения:\n"
-        "· Завтра\n"
-        "· Через 3 дня\n"
-        "· Через 7 дней\n"
-        "· Через 21 день\n"
-        "· Через 60 дней\n\n"
-        "Можешь добавлять ещё материал."
-    )
+    try:
+        save_card(user_id, card_type="text", text_content=text)
+        await update.message.reply_text(
+            "✍️ Текст сохранён!\n\n"
+            "Буду присылать его тебе:\n"
+            f"{review_schedule_text()}\n\n"
+            "Можешь добавлять ещё материал — фото или текст."
+        )
+    except Exception as e:
+        logger.error(f"Ошибка сохранения текста для user {user_id}: {e}")
+        await update.message.reply_text(
+            "⚠️ Не удалось сохранить текст. Попробуй ещё раз через минуту."
+        )
 
 
 async def list_cards(update: Update, context: ContextTypes.DEFAULT_TYPE):
