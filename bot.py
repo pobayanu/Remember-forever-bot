@@ -42,7 +42,7 @@ def get_cards_due_today(user_id: int) -> list:
         supabase.table("cards")
         .select("*")
         .eq("user_id", user_id)
-        .eq("completed", False)
+        .eq("completed", "false")
         .lte("next_review", today)
         .execute()
     )
@@ -50,7 +50,7 @@ def get_cards_due_today(user_id: int) -> list:
 
 
 def get_all_active_users() -> list:
-    result = supabase.table("cards").select("user_id").eq("completed", False).execute()
+    result = supabase.table("cards").select("user_id").eq("completed", "false").execute()
     return list({row["user_id"] for row in (result.data or [])})
 
 
